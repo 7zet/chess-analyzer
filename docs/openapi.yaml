@@ -1,0 +1,137 @@
+openapi: 3.1.0
+info:
+  title: Royal Move API
+  version: 1.0.0
+  description: Local chess game import and Stockfish analysis API.
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Check API and database health
+      responses:
+        "200": { description: Healthy }
+  /api/auth/register:
+    post:
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201": { description: Account created }
+        "409": { description: Email already exists }
+        "422": { description: Validation failed }
+  /api/auth/login:
+    post:
+      summary: Authenticate an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200": { description: Authenticated }
+        "401": { description: Invalid credentials }
+  /api/me:
+    get:
+      summary: Return the authenticated user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Current user }
+  /api/platforms/{source}/{username}/games:
+    get:
+      summary: Import recent public games
+      parameters:
+        - { name: source, in: path, required: true, schema: { type: string, enum: [chesscom, lichess] } }
+        - { name: username, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Recent games }
+  /api/analyses:
+    get:
+      summary: List analysis history
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Analysis list }
+    post:
+      summary: Queue a game analysis
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAnalysisRequest" }
+      responses:
+        "201": { description: Analysis queued }
+        "422": { description: Invalid PGN or source }
+  /api/analyses/{id}:
+    get:
+      summary: Return one analysis and its evaluated moves
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Analysis }
+        "404": { description: Analysis not found }
+  /api/analyses/{id}/retry:
+    post:
+      summary: Retry a failed analysis
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "202": { description: Analysis requeued }
+  /api/admin/users:
+    get:
+      summary: List registered users
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: User list }
+        "403": { description: Administrator access required }
+  /api/admin/users/{id}/status:
+    patch:
+      summary: Block or restore a user account
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              additionalProperties: false
+              properties:
+                status: { type: string, enum: [active, blocked] }
+      responses:
+        "200": { description: Account status updated }
+        "403": { description: Administrator access required }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, displayName]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 72 }
+        displayName: { type: string, minLength: 2, maxLength: 80 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    CreateAnalysisRequest:
+      type: object
+      required: [source, pgn]
+      additionalProperties: false
+      properties:
+        source: { type: string, enum: [pgn, chesscom, lichess] }
+        externalId: { type: string }
+        pgn: { type: string, minLength: 1 }

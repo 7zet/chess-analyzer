@@ -1,0 +1,12 @@
+.env
+.next/
+node_modules/
+dist/
+coverage/
+*.log
+*.exe
+*.tsbuildinfo
+tmp/
+.runtime/
+backend/royal_move.db*
+tools/stockfish/
